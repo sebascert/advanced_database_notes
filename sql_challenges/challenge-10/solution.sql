@@ -1,0 +1,172 @@
+-- ============================================
+-- EXERCISE 1: Explore Your Schema
+-- ============================================
+-- List all objects in your schema using USER_OBJECTS
+-- Group the results by OBJECT_TYPE and count them
+-- Identify the object types available in the schema
+
+    -- I explored the schema using the USER_OBJECTS view and grouped the results
+    -- by OBJECT_TYPE.
+    -- The schema currently contains several Oracle object types, including TABLE,
+    -- INDEX, SEQUENCE, PROCEDURE, TRIGGER, and LOB objects.
+    -- Current object totals:
+    --   - 6 INDEX objects
+    --   - 1 LOB object
+    --   - 1 PROCEDURE
+    --   - 2 SEQUENCES
+    --   - 8 TABLES
+    --   - 1 TRIGGER
+    -- This analysis provided a better understanding of the schema structure and
+    -- helped identify all database objects that may require migration or backup.
+
+-- ============================================
+-- EXERCISE 2: Basic GET_DDL
+-- ============================================
+-- Configure transform parameters for cleaner output
+-- Identify key sections in the generated DDL:
+--   - Column definitions (NAME, TYPE, NULL/NOT NULL)
+--   - Constraints (PRIMARY KEY, FOREIGN KEY, CHECK)
+--   - Storage parameters (if included)
+
+    -- For this exercise, I selected the BRICKS table and generated its DDL using
+    -- DBMS_METADATA.GET_DDL.
+    -- The generated statement recreates the complete structure of the BRICKS table.
+    -- The output includes:
+    --   - Column definitions
+    --   - Data types
+    --   - NULL and NOT NULL constraints
+    --   - Constraint definitions, where applicable
+    -- Example columns in the table include:
+    --   - BRICK_ID NUMBER
+    --   - COLOUR VARCHAR2
+    --   - SHAPE VARCHAR2
+    --   - WEIGHT NUMBER
+    -- Before applying cleanup transformations, the generated script also contained
+    -- Oracle-specific storage settings and tablespace information.
+
+-- ============================================
+-- EXERCISE 3: Clean DDL for Portability
+-- ============================================
+-- Remove schema names from the DDL so it can run in any schema
+-- Compare the output with and without EMIT_SCHEMA:
+-- With EMIT_SCHEMA (default):   CREATE TABLE "SALES"."ORDERS" ...
+-- Without EMIT_SCHEMA:          CREATE TABLE "ORDERS" ...
+
+    -- I attempted to use the EMIT_SCHEMA transformation parameter with
+    -- DBMS_METADATA.SET_TRANSFORM_PARAM to remove schema-qualified names
+    -- from the exported DDL.
+    -- However, the FreeSQL environment restricts certain DBMS_METADATA
+    -- transformation options, preventing the parameter from being fully applied.
+    -- Even though the command could not be executed successfully, removing schema
+    -- qualifiers remains important because it improves portability across
+    -- different Oracle schemas.
+    -- Example:
+    --   With schema qualifier:
+    --     CREATE TABLE "OLD_SCHEMA"."BRICKS" ...
+    --   Without schema qualifier:
+    --     CREATE TABLE "BRICKS" ...
+    -- The second version is preferred for migrations because it can be executed
+    -- in any target schema without modification.
+
+-- ============================================
+-- EXERCISE 4: Plan a Migration
+-- ============================================
+-- You are migrating to a new schema with a different name.
+-- Determine the required modifications to the exported DDL.
+
+    -- If I migrate the schema from SCHEMA_OLD to SCHEMA_NEW, I would need to
+    -- review and modify the exported DDL scripts before running them in the
+    -- target database.
+    -- For example, the BRICKS table could appear in the exported DDL as:
+    --     SCHEMA_OLD.BRICKS
+    -- To improve portability, I would remove the schema qualifier so it becomes:
+    --     BRICKS
+    -- If the table contained foreign key relationships, additional tasks would
+    -- include:
+    --   - Verifying that referenced tables exist in SCHEMA_NEW
+    --   - Updating REFERENCES clauses if schema names changed
+    --   - Recreating constraints after all related tables are created
+    -- The BRICKS table currently does not contain foreign keys, so no foreign
+    -- key adjustments are required.
+    -- Recommended migration order:
+    --   1. Tables
+    --   2. Primary keys and constraints
+    --   3. Foreign keys
+    --   4. Indexes
+    --   5. Views, procedures, triggers, and other objects
+    -- Migration checklist:
+    --   - Export BRICKS DDL without schema qualifiers
+    --   - Verify all column definitions
+    --   - Validate primary key and constraint definitions
+    --   - Recreate the table in the target schema
+    --   - Recreate indexes and dependent objects
+    --   - Validate the migrated data and schema structure
+
+-- ============================================
+-- EXERCISE 5: Dependency Order
+-- ============================================
+-- Use USER_DEPENDENCIES to analyze object relationships
+
+    -- I used the USER_DEPENDENCIES view to examine relationships between schema
+    -- objects.
+    -- The results showed that some objects depend on other database objects,
+    -- particularly procedures and triggers.
+    -- Current dependency observations:
+    --   - 1 PROCEDURE depends on schema objects
+    --   - 1 TRIGGER also contains object dependencies
+    -- Although these dependencies are not directly related to the BRICKS table,
+    -- they demonstrate that some schema objects rely on others being created first.
+    -- Dependency analysis is important during migration because objects must be
+    -- recreated in the correct order to avoid compilation or reference errors.
+
+-- ============================================
+-- EXERCISE 6: Design Your Own Backup Strategy
+-- ============================================
+-- Given:
+--   - No EXPDP access (no directory privileges)
+--   - Need to migrate the schema to another database
+--   - Only SQL access is available
+--
+-- Design the migration and backup process:
+
+    -- Since I do not have access to EXPDP or Oracle directory privileges:
+    --
+    -- STEP 1:
+    -- Analyze the schema structure using USER_OBJECTS, USER_TABLES,
+    -- USER_INDEXES, and USER_DEPENDENCIES.
+    --
+    -- STEP 2:
+    -- Extract all DDL definitions using DBMS_METADATA.GET_DDL for:
+    --   - Tables
+    --   - Sequences
+    --   - Indexes
+    --   - Views
+    --   - Constraints
+    --   - Procedures
+    --   - Functions
+    --   - Triggers
+    --
+    -- STEP 3:
+    -- Clean the generated DDL by:
+    --   - Removing schema-qualified names
+    --   - Removing storage parameters
+    --   - Removing tablespace information
+    -- This improves portability across Oracle environments.
+    --
+    -- STEP 4:
+    -- Execute the scripts in the target database following the proper
+    -- dependency order:
+    --   1. Tables
+    --   2. Sequences
+    --   3. Indexes
+    --   4. Constraints and keys
+    --   5. Views
+    --   6. Procedures, functions, and packages
+    --   7. Triggers
+    --
+    -- STEP 5:
+    -- Validate the migration by comparing:
+    --   - Object counts
+    --   - Table structures
+    --   - Constraints
+    --   - Indexes
